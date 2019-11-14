@@ -10,6 +10,7 @@ import requests
 import termcolor
 import queue
 import urllib.parse
+import csv
 
 from typing import List
 from multiprocessing import Process, Queue
@@ -353,8 +354,10 @@ def find_s3(token, scan_context: ScanningContext):
 
 
 def find_credentials(token, scan_context: ScanningContext):
+    finding_list = []
+
     print(termcolor.colored("START: Attempting to find references to credentials", "white", "on_blue"))
-    page_count_by_query = dict()
+    pagination = dict()
 
     try:
         r = None
@@ -366,28 +369,34 @@ def find_credentials(token, scan_context: ScanningContext):
                                  headers={'User-Agent': scan_context.user_agent}).json()
                 if not sleep_if_rate_limited(r):
                     break
-            page_count_by_query[query] = (r['messages']['pagination']['page_count'])
+            pagination[query] = (r['messages']['pagination']['page_count'])
 
-        for query, page_count in page_count_by_query.items():
+        for key, value in pagination.items():
             page = 1
-            while page <= page_count:
+            while page <= value:
                 sleep_if_rate_limited(r)
                 request_url = "https://slack.com/api/search.messages"
-                params = dict(token=token, query="\"{}\"".format(query), pretty=1, count=100, page=str(page))
+                params = dict(token=token, query="\"{}\"".format(key), pretty=1, count=100, page=str(page))
                 r = requests.get(request_url, params=params, headers={'User-Agent': scan_context.user_agent}).json()
-                regex_results = re.findall(CREDENTIALS_REGEX, str(r))
-                with open(scan_context.output_directory + '/' + FILE_CREDENTIALS, 'a', encoding="utf-8") as log_output:
-                    for item in set(regex_results):
-                        log_output.write(item + "\n")
+
+                for item in r['messages']['matches']:
+                    finding = {}
+                    potential_secret = re.findall(CREDENTIALS_REGEX, item['text'])
+                    if potential_secret:
+                        finding['username'] = item['username']
+                        finding['secret'] = potential_secret 
+                        finding['link'] = item['permalink']
+                        finding_list.append(finding)
                 page += 1
     except requests.exceptions.RequestException as exception:
         print(termcolor.colored(exception, "white", "on_red"))
     file_cleanup(input_file=FILE_CREDENTIALS, scan_context=scan_context)
-    print(termcolor.colored(
-        "END: If any credentials were found, they will be here: ./" + scan_context.output_directory +
-        "/" + FILE_CREDENTIALS,
-        "white", "on_green"))
-    print(termcolor.colored("\n"))
+
+    keys = finding_list[0].keys()
+    with open('credentials.csv', 'w') as csv_file:
+         writer= csv.DictWriter(csv_file, keys)
+         writer.writeheader()
+         writer.writerows(finding_list)
 
 
 def find_aws_keys(token, scan_context: ScanningContext):
