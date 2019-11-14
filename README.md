@@ -1,4 +1,4 @@
-# Fork Changes
+# Fork Notes
 This is a small fork of emtunc's SlackPirate. The credential scan output has been (hastily) tweaked to be more useful for blue team recovery efforts. 
 
 The following changes were made to the `find_credentials` scan function:
