@@ -1,7 +1,7 @@
 # Fork Notes
-This is a small fork of emtunc's SlackPirate. The credential scan output has been (hastily) tweaked to be more useful for blue team recovery efforts. 
+This is a small fork of emtunc's SlackPirate. The `find_credentials` scan output has been (hastily) tweaked to be more useful for blue team recovery efforts. 
 
-The following changes were made to the `find_credentials` scan function:
+The following changes were made:
 * Output to CSV rather than text file
 * Include username that posted the potential secret
 * Include Slack permalink for blue team's to easily identify and remove the secret 
